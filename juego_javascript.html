@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>Juego superación obstaculos</title>
+  <style>
+    canvas {
+      border: 2px solid black;
+      background-color: #cfcfcf;
+      display: block;
+      margin: 20px auto;
+    }
+    #iniciarJuego {
+      display: block;
+      margin: 10px auto;
+      padding: 10px 20px;
+      font-size: 18px;
+    }
+  </style>
+</head>
+<body>
+
+  <h1 style="text-align: center;">Juego superacion obstaculos</h1>
+  <canvas id="juego" width="400" height="600"></canvas>
+  <button id="iniciarJuego">Iniciar Juego</button>
+
+  <audio id="musica" src="./musica/musica.mp3" loop preload="auto"></audio>
+  <audio id="colision" src="./musica/colision.mp3" preload="auto"></audio>
+
+  <script>
+    const canvas = document.getElementById('juego');
+    const ctx = canvas.getContext('2d');
+    const musica = document.getElementById("musica");
+    const sonidoColision = document.getElementById("colision");
+    const botonInicio = document.getElementById("iniciarJuego");
+
+    let coche, obstaculos, contadorFrames, juegoTerminado, puntuacion, nivel, teclas, vidas;
+
+    function inicializarJuego() {
+      coche = {
+        x: 180,
+        y: 500,
+        width: 40,
+        height: 80,
+        color: "red",
+        velocidad: 5
+      };
+      obstaculos = [];
+      contadorFrames = 0;
+      juegoTerminado = false;
+      puntuacion = 0;
+      nivel = 1;
+      teclas = {
+        izquierda: false,
+        derecha: false,
+        arriba: false,
+        abajo: false
+      };
+      vidas = 3;
+    }
+
+    const anchoCarretera = 200;
+    const bordeIzquierdo = 100;
+    const bordeDerecho = 295;
+
+    function dibujarPuntuacion() {
+      ctx.fillStyle = "black";
+      ctx.font = "20px Arial";
+      ctx.fillText("Puntos: " + puntuacion, 10, 30);
+      ctx.fillText("Nivel: " + nivel, 10, 55);
+      ctx.fillText("Vidas: " + vidas, 10, 80);
+    }
+
+    function dibujarCoche() {
+      ctx.fillStyle = coche.color;
+      ctx.fillRect(coche.x, coche.y, coche.width, coche.height);
+    }
+
+    function dibujarPista() {
+      ctx.fillStyle = '#606060';
+      ctx.fillRect(bordeIzquierdo, 0, anchoCarretera, canvas.height);
+      ctx.fillStyle = 'white';
+      ctx.fillRect(bordeIzquierdo, 0, 5, canvas.height);
+      ctx.fillRect(bordeDerecho, 0, 5, canvas.height);
+    }
+
+    function crearObstaculo() {
+      const tipo = Math.floor(Math.random() * 4);
+      let obstaculo;
+
+      switch (tipo) {
+        case 0:
+          obstaculo = { width: 40, height: 80, color: "black", velocidad: 3 + nivel };
+          break;
+        case 1:
+          obstaculo = { width: 60, height: 80, color: "blue", velocidad: 2 + nivel };
+          break;
+        case 2:
+          obstaculo = { width: 40, height: 80, color: "orange", velocidad: 5 + nivel };
+          break;
+        case 3:
+          obstaculo = { width: 40, height: 40, color: "gray", velocidad: 3 + nivel };
+          break;
+      }
+
+      obstaculo.x = Math.floor(Math.random() * (anchoCarretera - obstaculo.width)) + bordeIzquierdo + 5;
+      obstaculo.y = -obstaculo.height;
+      obstaculos.push(obstaculo);
+    }
+
+    function moverObstaculos() {
+      for (let i = obstaculos.length - 1; i >= 0; i--) {
+        obstaculos[i].y += obstaculos[i].velocidad;
+        if (obstaculos[i].y > canvas.height) {
+          obstaculos.splice(i, 1);
+          puntuacion += 10;
+          if (puntuacion % 100 === 0) nivel++;
+        }
+      }
+    }
+
+    function dibujarObstaculos() {
+      obstaculos.forEach(obs => {
+        ctx.fillStyle = obs.color;
+        ctx.fillRect(obs.x, obs.y, obs.width, obs.height);
+      });
+    }
+
+    function detectarColision(rect1, rect2) {
+      return (
+        rect1.x < rect2.x + rect2.width &&
+        rect1.x + rect1.width > rect2.x &&
+        rect1.y < rect2.y + rect2.height &&
+        rect1.y + rect1.height > rect2.y
+      );
+    }
+
+    function verificarColisiones() {
+      for (let i = obstaculos.length - 1; i >= 0; i--) {
+        if (detectarColision(coche, obstaculos[i])) {
+          obstaculos.splice(i, 1);
+          vidas--;
+
+          sonidoColision.currentTime = 0;
+          sonidoColision.play();
+
+          if (vidas <= 0) {
+            juegoTerminado = true;
+            mostrarGameOver();
+          }
+          break;
+        }
+      }
+    }
+
+    function mostrarGameOver() {
+      ctx.fillStyle = "rgba(0, 0, 0, 0.7)";
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      ctx.fillStyle = "white";
+      ctx.font = "36px Arial";
+      ctx.textAlign = "center";
+      ctx.fillText("¡Colisión!", canvas.width / 2, canvas.height / 2 - 20);
+      ctx.font = "24px Arial";
+      ctx.fillText("Puntuación final: " + puntuacion, canvas.width / 2, canvas.height / 2 + 20);
+      ctx.fillText("Nivel alcanzado: " + nivel, canvas.width / 2, canvas.height / 2 + 50);
+      botonInicio.style.display = "block";
+      musica.pause();
+      musica.currentTime = 0;
+    }
+
+    document.addEventListener('keydown', function(event) {
+      if (!juegoTerminado) {
+        if (event.key === 'ArrowLeft') teclas.izquierda = true;
+        if (event.key === 'ArrowRight') teclas.derecha = true;
+        if (event.key === 'ArrowUp') teclas.arriba = true;
+        if (event.key === 'ArrowDown') teclas.abajo = true;
+      }
+    });
+
+    document.addEventListener('keyup', function(event) {
+      if (event.key === 'ArrowLeft') teclas.izquierda = false;
+      if (event.key === 'ArrowRight') teclas.derecha = false;
+      if (event.key === 'ArrowUp') teclas.arriba = false;
+      if (event.key === 'ArrowDown') teclas.abajo = false;
+    });
+
+    function actualizarMovimiento() {
+      if (teclas.izquierda && coche.x > bordeIzquierdo + 5) coche.x -= coche.velocidad;
+      if (teclas.derecha && coche.x + coche.width < bordeDerecho) coche.x += coche.velocidad;
+      if (teclas.arriba && coche.y > 0) coche.y -= coche.velocidad;
+      if (teclas.abajo && coche.y + coche.height < canvas.height) coche.y += coche.velocidad;
+    }
+
+    function renderizarJuego() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      dibujarPista();
+      dibujarCoche();
+      dibujarObstaculos();
+      dibujarPuntuacion();
+    }
+
+    function bucleJuego() {
+      if (!juegoTerminado) {
+        actualizarMovimiento();
+        renderizarJuego();
+        moverObstaculos();
+        verificarColisiones();
+        contadorFrames++;
+        if (contadorFrames % 100 === 0) crearObstaculo();
+        requestAnimationFrame(bucleJuego);
+      }
+    }
+
+    botonInicio.addEventListener("click", () => {
+      inicializarJuego();
+      musica.play();
+      botonInicio.style.display = "none";
+      bucleJuego();
+    });
+  </script>
+</body>
+</html>
+
+
+
+
+
+
